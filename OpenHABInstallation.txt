@@ -1,0 +1,7 @@
+wget -qO - 'https://openhab.jfrog.io/artifactory/api/gpg/key/public' | sudo apt-key add -
+sudo apt-get install apt-transport-https
+echo 'deb https://openhab.jfrog.io/artifactory/openhab-linuxpkg stable main' | sudo tee /etc/apt/sources.list.d/openhab.list
+sudo apt-get update && sudo apt-get install openhab
+sudo /bin/systemctl daemon-reload
+sudo /bin/systemctl enable openhab.service
+sudo /bin/systemctl start openhab.service
