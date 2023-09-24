@@ -14,16 +14,7 @@ const int mqtt_port = 1883;
 
 const char *mqtt_topic = "smarty/switchcontrol/bedroom";
 
-//const char *nodeID = "ROOFSTAIR";
-//const char *nodeID = "VERANDA";
-//const char *nodeID = "STAIRLANDING";
-//const char *nodeID = "MAINSTUDY";
-//const char *nodeID = "LIBRARY";
-//const char *nodeID = "CORRIDOR";
-//const char *nodeID = "UPPERBATHROOM";
-//const char *nodeID = "TESTING";
-//const char *nodeID = "UPPERBEDROOM";
-const char *nodeID = "STUDYPLUG";
+const char *nodeID = "BEDROOM";
 
 //Variables
 int i = 0;
