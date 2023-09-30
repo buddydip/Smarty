@@ -9,6 +9,8 @@
 #include <ArduinoJson.h>
 #include <EEPROM.h>
 #include <WebServer.h>
+#include <ESPmDNS.h>
+
 
 const char* nodeID = "CINEMAROOM";
 
@@ -119,6 +121,23 @@ void connectWifi()
     Serial.print("http://");
     Serial.print(WiFi.localIP());
     Serial.println("/");
+
+    // Set up mDNS responder:
+    // - first argument is the domain name, in this example
+    //   the fully-qualified domain name is "<hostname>.local"
+    // - second argument is the IP address to advertise
+    //   we send our IP address on the WiFi network
+    if (!MDNS.begin(nodeID)) {
+      Serial.println("Error setting up MDNS responder!");
+      while (1) {
+        delay(1000);
+      }
+    }
+    Serial.println("mDNS responder started");
+  
+    // Add service to MDNS-SD
+    MDNS.addService("http", "tcp", 80);
+    wifiServer.begin();
     return;
   }
   else
@@ -137,7 +156,6 @@ void connectWifi()
     delay(200);
     server.handleClient();
   }
-
 }
 
 //Fuctions used for WiFi credentials saving and connecting to it
@@ -415,14 +433,23 @@ int connectMQTT()
   Serial.print(mqtt_server);
   Serial.println(" at port " + mqtt_port);
 
+  Serial.print("Resolving Host....");
+  IPAddress serverIp = MDNS.queryHost(mqtt_server, 30000);
+  Serial.print("IP : ");
+
+  String mqtt_serverIP = serverIp.toString();
+  Serial.println(mqtt_serverIP);
+
+  //connect to MQTT server 
   mqttclient.setClient(wifimqClient);
-  mqttclient.setServer(mqtt_server, mqtt_port);
+  mqttclient.setServer(mqtt_serverIP.c_str(), mqtt_port);
   mqttclient.setCallback(MQTTcallback);
 
   if (mqttclient.connect(nodeID))
   {
     Serial.println("Connected to MQTT Broker");
     mqttclient.subscribe(mqtt_topic);
+
     Serial.print("Subscribed to topic ");
     Serial.println(mqtt_topic);
   }
@@ -432,6 +459,7 @@ int connectMQTT()
     Serial.println(mqttclient.state());
     delay(2000);
   }
+  return mqttclient.state();
 }
 
 //publish switch state message to MQTT server
@@ -490,6 +518,8 @@ void setup()
 
   Serial.begin(115200);
   delay(10);
+
+  EEPROM.begin(100);
 
   //connect to wifi
   connectWifi();
@@ -779,4 +809,3 @@ void loop()
   // close the connection:
   Serial.println("Client Disconnected.");
 }
-
