@@ -152,8 +152,8 @@ void MQTTcallback(char* topic, byte* payload, unsigned int length)
   if (strcmp(topic, "smarty/motorcontrol/bedroom") == 0) 
   {
     // Fetch values for motor control
-    int newSpeed = doc["Speed"];
-    int newDirection = doc["Direction"];
+    int newSpeed = doc["MotorSpeed"];
+    int newDirection = doc["MotorDirection"];
 
     // Set the new motor speed and direction
     setMotor(newSpeed, newDirection);

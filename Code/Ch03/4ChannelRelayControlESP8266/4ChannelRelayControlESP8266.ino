@@ -9,19 +9,15 @@
 #include <EEPROM.h>
 
 //MQTT Connection
-const char *mqtt_server = "<serverhostname>";
+const char *mqtt_server = "smarty.local";
 const int mqtt_port = 1883;
-
-const char *mqtt_topic = "smarty/switchcontrol/bedroom";
-
-const char *nodeID = "BEDROOM";
+const char *mqtt_topic = "smarty/bedroom";
+const char *nodeID = "smartybedroom";
 
 //Variables
 int i = 0;
 int statusCode;
-const char* ssid = "<SSID>";
-const char* passphrase = "<password>";
-const char* otapassword = "<password>";
+const char* otapassword = "zyxcba123";
 String st;
 String content;
 
@@ -170,47 +166,64 @@ void MQTTcallback(char* topic, byte* payload, unsigned int length)
     return;
   }
 
-  // Fetch values.
-  String switchID = doc["SwitchID"];
+  // Fetch values
+  String switchName = doc["SwitchName"];
   int switchState = doc["SwitchState"];
 
   //Check switch to toggle
-  if (switchID.equals(switch1name) && (digitalRead(Switch1) == switchState))
+  if (switchName.equals(switch1name) && (digitalRead(Switch1) == switchState))
   {
-    digitalWrite(Switch1, !switchState);
+    controlSwitch(Switch1, !switchState);
   }
-  if (switchID.equals(switch2name) && (digitalRead(Switch2) == switchState))
+  if (switchName.equals(switch2name) && (digitalRead(Switch2) == switchState))
   {
-    digitalWrite(Switch2, !switchState);
+    controlSwitch(Switch2, !switchState);
   }
-  if (switchID.equals(switch3name) && (digitalRead(Switch3) == switchState))
+  if (switchName.equals(switch3name) && (digitalRead(Switch3) == switchState))
   {
-    digitalWrite(Switch3, !switchState);
+    controlSwitch(Switch3, !switchState);
   }
-  if (switchID.equals(switch4name) && (digitalRead(Switch4) == switchState))
+  if (switchName.equals(switch4name) && (digitalRead(Switch4) == switchState))
   {
-    digitalWrite(Switch4, !switchState);
+    controlSwitch(Switch4, !switchState);
   }
 }
 
-//toggle by manual switch
-void toggleSwitch(int switchID, String switchName)
+
+//read switch state to toggle
+void toggleSwitch(int switchID)
 {
   int switchState = digitalRead(switchID);
-  digitalWrite(switchID, !switchState);
+  controlSwitch(switchID, !switchState);
+}
 
+
+//switch on or off by changing digitalState of relay pin
+void controlSwitch(int switchID, int switchState)
+{
+  //change digitalState of relay pin as per instruction
+  digitalWrite(switchID, switchState);
+}
+
+
+//publish message to MQTT broker
+void publishMQTTMessage(String switchName, int switchState)
+{
+  //create JSCON message for MQTT publish
   doc.clear();
   controlState = "";
-  doc["SwitchID"] = switchName;
+  doc["SwitchName"] = switchName;
   doc["SwitchState"] = switchState;
-  //doc["Time"] = getCurrentDateTime();
   serializeJson(doc, controlState);
   Serial.println(controlState);
 
+  //publish MQTT message
   mqttclient.publish(mqtt_topic, controlState.c_str());
   doc.clear();
 }
 
+
+//connect to Wifi network
 void connectWifi()
 {
   Serial.println("Startup");
@@ -291,6 +304,164 @@ void connectWifi()
 
 }
 
+//Fuctions used for WiFi credentials saving and connecting to it
+bool testWifi()
+{
+  int c = 0;
+  Serial.println("Waiting for Wifi to connect");
+  while ( c < 100 ) {
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      return true;
+    }
+    delay(200);
+    Serial.print("*");
+    c++;
+  }
+  Serial.println("");
+  Serial.println("Connect timed out, opening AP");
+  return false;
+}
+
+void launchWeb()
+{
+  Serial.println("");
+  if (WiFi.status() == WL_CONNECTED)
+    Serial.println("WiFi connected");
+  Serial.print("Local IP: ");
+  Serial.println(WiFi.localIP());
+  Serial.print("SoftAP IP: ");
+  Serial.println(WiFi.softAPIP());
+  createWebServer();
+  // Start the server
+  server.begin();
+  Serial.println("Server started");
+}
+
+
+//setup hotspot
+void setupAP()
+{
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  delay(100);
+  int n = WiFi.scanNetworks();
+  Serial.println("scan done");
+  if (n == 0)
+    Serial.println("no networks found");
+  else
+  {
+    Serial.print(n);
+    Serial.println(" networks found");
+    for (int i = 0; i < n; ++i)
+    {
+      // Print SSID and RSSI for each network found
+      Serial.print(i + 1);
+      Serial.print(": ");
+      Serial.print(WiFi.SSID(i));
+      Serial.print(" (");
+      Serial.print(WiFi.RSSI(i));
+      Serial.print(")");
+      Serial.println((WiFi.encryptionType(i) == ENC_TYPE_NONE) ? " " : "*");
+      delay(10);
+    }
+  }
+  Serial.println("");
+  st = "<ol>";
+  for (int i = 0; i < n; ++i)
+  {
+    // Print SSID and RSSI for each network found
+    st += "<li>";
+    st += WiFi.SSID(i);
+    st += " (";
+    st += WiFi.RSSI(i);
+
+    st += ")";
+    st += (WiFi.encryptionType(i) == ENC_TYPE_NONE) ? " " : "*";
+    st += "</li>";
+  }
+  st += "</ol>";
+  delay(100);
+  WiFi.softAP(nodeID, "");
+  Serial.println("softap");
+  launchWeb();
+  Serial.println("over");
+}
+
+
+//launch web page for Wifi config
+void createWebServer()
+{
+  {
+    server.on("/", []() {
+
+      IPAddress ip = WiFi.softAPIP();
+      String ipStr = String(ip[0]) + '.' + String(ip[1]) + '.' + String(ip[2]) + '.' + String(ip[3]);
+      content = "<!DOCTYPE HTML>\r\n<html>Hello from ESP8266 at ";
+      content += "<form action=\"/scan\" method=\"POST\"><input type=\"submit\" value=\"scan\"></form>";
+      content += ipStr;
+      content += "<p>";
+      content += st;
+      content += "</p><form method='get' action='setting'><label>SSID: </label><input name='ssid' length=32><input name='pass' length=64><input type='submit'></form>";
+      content += "</html>";
+      server.send(200, "text/html", content);
+    });
+    server.on("/scan", []() {
+
+      IPAddress ip = WiFi.softAPIP();
+      String ipStr = String(ip[0]) + '.' + String(ip[1]) + '.' + String(ip[2]) + '.' + String(ip[3]);
+
+      content = "<!DOCTYPE HTML>\r\n<html>go back";
+      server.send(200, "text/html", content);
+    });
+
+    server.on("/setting", []() {
+      String qsid = server.arg("ssid");
+      String qpass = server.arg("pass");
+      if (qsid.length() > 0 && qpass.length() > 0) {
+        Serial.println("clearing eeprom");
+        for (int i = 0; i < 96; ++i) {
+          EEPROM.write(i, 0);
+        }
+        Serial.println(qsid);
+        Serial.println("");
+        Serial.println(qpass);
+        Serial.println("");
+
+        Serial.println("writing eeprom ssid:");
+        for (int i = 0; i < qsid.length(); ++i)
+        {
+          EEPROM.write(i, qsid[i]);
+          Serial.print("Wrote: ");
+          Serial.println(qsid[i]);
+        }
+        Serial.println("writing eeprom pass:");
+        for (int i = 0; i < qpass.length(); ++i)
+        {
+          EEPROM.write(32 + i, qpass[i]);
+          Serial.print("Wrote: ");
+          Serial.println(qpass[i]);
+        }
+        EEPROM.commit();
+
+        content = "{\"Success\":\"saved to eeprom... reset to boot into new wifi\"}";
+        statusCode = 200;
+        ESP.reset();
+      } else {
+        content = "{\"Error\":\"404 not found\"}";
+        statusCode = 404;
+        Serial.println("Sending 404");
+      }
+      server.sendHeader("Access-Control-Allow-Origin", "*");
+      server.send(statusCode, "application/json", content);
+
+    });
+  }
+}
+//WiFi Config Functions end
+
+
+//setup/initialization function will be executed once when powered on
 void setup() {
   Serial.begin(115200); //Initialising if(DEBUG)Serial Monitor
   Serial.println();
@@ -324,7 +495,12 @@ void setup() {
   connectMQTT();
 
 }
+
+
+//will be continuously executed when the board is powered on
 void loop() {
+
+  //check the connections and connect if disconnected
   if ((WiFi.status() != WL_CONNECTED))
   {
     Serial.println("wifi Disconnected");
@@ -341,33 +517,33 @@ void loop() {
   mqttclient.loop();
   ArduinoOTA.handle();
 
+  //check the digital state of the button pin (physical switch) to toggle the relay channel if needed
   if ((digitalRead(Button1) != Button1State))
   {
-    toggleSwitch(Switch1, switch1name);
+    toggleSwitch(Switch1);
+    publishMQTTMessage(switch1name, digitalRead(Switch1));
     Button1State = digitalRead(Button1);
-    delay(200);
   }
   if (digitalRead(Button2) != Button2State)
   {
-    toggleSwitch(Switch2, switch2name);
+    toggleSwitch(Switch2);
+    publishMQTTMessage(switch2name, digitalRead(Switch2));
     Button2State = digitalRead(Button2);
-    delay(200);
-
   }
   if (digitalRead(Button3) != Button3State)
   {
-    toggleSwitch(Switch3, switch3name);
+    toggleSwitch(Switch3);
+    publishMQTTMessage(switch3name, digitalRead(Switch3));
     Button3State = digitalRead(Button3);
-    delay(200);
-
   }
   if (digitalRead(Button4) != Button4State)
   {
-    toggleSwitch(Switch4, switch4name);
+    toggleSwitch(Switch4);
+    publishMQTTMessage(switch4name, digitalRead(Switch4));
     Button4State = digitalRead(Button4);
-    delay(200);
-
   }
+
+  //Web request Handler
   // Check if a client has connected
   WiFiClient wifiClient = wifiServer.available();
   if (!wifiClient.available()) {
@@ -384,120 +560,43 @@ void loop() {
 
   //Check amd control switch state
   if (request.indexOf("/switch1on") > 0)  {
-
-    digitalWrite(Switch1, LOW);
-    doc.clear();
-    controlState = "";
-    doc["SwitchID"] = switch1name;
-    doc["SwitchState"] = 1;
-    //doc["Time"] = getCurrentDateTime();
-    serializeJson(doc, controlState);
-    Serial.println(controlState);
-
-    mqttclient.publish(mqtt_topic, controlState.c_str());
-    doc.clear();
+    controlSwitch(Switch1, LOW);
+    publishMQTTMessage(switch1name, HIGH);
   }
 
   if (request.indexOf("/switch1off") > 0)  {
-    digitalWrite(Switch1, HIGH);
-
-    doc.clear();
-    controlState = "";
-    doc["SwitchID"] = switch1name;
-    doc["SwitchState"] = 0;
-    //doc["Time"] = getCurrentDateTime();
-    serializeJson(doc, controlState);
-    Serial.println(controlState);
-
-    mqttclient.publish(mqtt_topic, controlState.c_str());
-    doc.clear();
+    controlSwitch(Switch1, HIGH);
+    publishMQTTMessage(switch1name, LOW);
   }
 
   if (request.indexOf("/switch2on") > 0)  {
-    digitalWrite(Switch2, LOW);
-
-    doc.clear();
-    controlState = "";
-    doc["SwitchID"] = switch2name;
-    doc["SwitchState"] = 1;
-    //doc["Time"] = getCurrentDateTime();
-    serializeJson(doc, controlState);
-    Serial.println(controlState);
-
-    mqttclient.publish(mqtt_topic, controlState.c_str());
-    doc.clear();
+    controlSwitch(Switch2, LOW);
+    publishMQTTMessage(switch2name, HIGH);
   }
 
   if (request.indexOf("/switch2off") > 0)  {
-
-    digitalWrite(Switch2, HIGH);
-
-    doc.clear();
-    controlState = "";
-    doc["SwitchID"] = switch2name;
-    doc["SwitchState"] = 0;
-    //doc["Time"] = getCurrentDateTime();
-    serializeJson(doc, controlState);
-    Serial.println(controlState);
-
-    mqttclient.publish(mqtt_topic, controlState.c_str());
-    doc.clear();
+    controlSwitch(Switch2, HIGH);
+    publishMQTTMessage(switch2name, LOW);
   }
 
   if (request.indexOf("/switch3on") > 0)  {
-
-    digitalWrite(Switch3, LOW);
-
-    doc.clear();
-    controlState = "";
-    doc["SwitchID"] = switch3name;
-    doc["SwitchState"] = 1;
-    //doc["Time"] = getCurrentDateTime();
-    serializeJson(doc, controlState);
-    Serial.println(controlState);
-
-    mqttclient.publish(mqtt_topic, controlState.c_str());
-    doc.clear();
+    controlSwitch(Switch3, LOW);
+    publishMQTTMessage(switch3name, HIGH);
   }
 
   if (request.indexOf("/switch3off") > 0)  {
-    digitalWrite(Switch3, HIGH);
-    doc.clear();
-    controlState = "";
-    doc["SwitchID"] = switch3name;
-    doc["SwitchState"] = 0;
-    //doc["Time"] = getCurrentDateTime();
-    serializeJson(doc, controlState);
-    Serial.println(controlState);
-    mqttclient.publish(mqtt_topic, controlState.c_str());
-    doc.clear();
+    controlSwitch(Switch3, HIGH);
+    publishMQTTMessage(switch3name, LOW);
   }
 
   if (request.indexOf("/switch4on") > 0)  {
-    digitalWrite(Switch4, LOW);
-    doc.clear();
-    controlState = "";
-    doc["SwitchID"] = switch4name;
-    doc["SwitchState"] = 1;
-    //doc["Time"] = getCurrentDateTime();
-    serializeJson(doc, controlState);
-    Serial.println(controlState);
-
-    mqttclient.publish(mqtt_topic, controlState.c_str());
-    doc.clear();
+    controlSwitch(Switch4, LOW);
+    publishMQTTMessage(switch4name, HIGH);
   }
 
   if (request.indexOf("/switch4off") > 0)  {
-    digitalWrite(Switch4, HIGH);
-    doc.clear();
-    controlState = "";
-    doc["SwitchID"] = switch4name;
-    doc["SwitchState"] = 0;
-    //doc["Time"] = getCurrentDateTime();
-    serializeJson(doc, controlState);
-    Serial.println(controlState);
-    mqttclient.publish(mqtt_topic, controlState.c_str());
-    doc.clear();
+    controlSwitch(Switch4, HIGH);
+    publishMQTTMessage(switch4name, LOW);
   }
 
   // Display the Page
@@ -583,158 +682,6 @@ void loop() {
   wifiClient.println("<BR>");
   wifiClient.println("</center>");
   wifiClient.println("</html>");
-  delay(1);
   Serial.println("Client disonnected");
   Serial.println("");
-
-}
-//-------- Fuctions used for WiFi credentials saving and connecting to it which you do not need to change
-bool testWifi(void)
-{
-  int c = 0;
-  Serial.println("Waiting for Wifi to connect");
-  while ( c < 2000 ) {
-    if (WiFi.status() == WL_CONNECTED)
-    {
-      return true;
-    }
-    delay(200);
-    Serial.print("*");
-    c++;
-  }
-  Serial.println("");
-  Serial.println("Connect timed out, opening AP");
-  return false;
-}
-
-void launchWeb()
-{
-  Serial.println("");
-  if (WiFi.status() == WL_CONNECTED)
-    Serial.println("WiFi connected");
-  Serial.print("Local IP: ");
-  Serial.println(WiFi.localIP());
-  Serial.print("SoftAP IP: ");
-  Serial.println(WiFi.softAPIP());
-  createWebServer();
-  // Start the server
-  server.begin();
-  Serial.println("Server started");
-}
-
-void setupAP(void)
-{
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-  delay(100);
-  int n = WiFi.scanNetworks();
-  Serial.println("scan done");
-  if (n == 0)
-    Serial.println("no networks found");
-  else
-  {
-    Serial.print(n);
-    Serial.println(" networks found");
-    for (int i = 0; i < n; ++i)
-    {
-      // Print SSID and RSSI for each network found
-      Serial.print(i + 1);
-      Serial.print(": ");
-      Serial.print(WiFi.SSID(i));
-      Serial.print(" (");
-      Serial.print(WiFi.RSSI(i));
-      Serial.print(")");
-      Serial.println((WiFi.encryptionType(i) == ENC_TYPE_NONE) ? " " : "*");
-      delay(10);
-    }
-  }
-  Serial.println("");
-  st = "<ol>";
-  for (int i = 0; i < n; ++i)
-  {
-    // Print SSID and RSSI for each network found
-    st += "<li>";
-    st += WiFi.SSID(i);
-    st += " (";
-    st += WiFi.RSSI(i);
-
-    st += ")";
-    st += (WiFi.encryptionType(i) == ENC_TYPE_NONE) ? " " : "*";
-    st += "</li>";
-  }
-  st += "</ol>";
-  delay(100);
-  WiFi.softAP(nodeID, "");
-  Serial.println("softap");
-  launchWeb();
-  Serial.println("over");
-}
-
-void createWebServer()
-{
-  {
-    server.on("/", []() {
-
-      IPAddress ip = WiFi.softAPIP();
-      String ipStr = String(ip[0]) + '.' + String(ip[1]) + '.' + String(ip[2]) + '.' + String(ip[3]);
-      content = "<!DOCTYPE HTML>\r\n<html>Hello from ESP8266 at ";
-      content += "<form action=\"/scan\" method=\"POST\"><input type=\"submit\" value=\"scan\"></form>";
-      content += ipStr;
-      content += "<p>";
-      content += st;
-      content += "</p><form method='get' action='setting'><label>SSID: </label><input name='ssid' length=32><input name='pass' length=64><input type='submit'></form>";
-      content += "</html>";
-      server.send(200, "text/html", content);
-    });
-    server.on("/scan", []() {
-      //setupAP();
-      IPAddress ip = WiFi.softAPIP();
-      String ipStr = String(ip[0]) + '.' + String(ip[1]) + '.' + String(ip[2]) + '.' + String(ip[3]);
-
-      content = "<!DOCTYPE HTML>\r\n<html>go back";
-      server.send(200, "text/html", content);
-    });
-
-    server.on("/setting", []() {
-      String qsid = server.arg("ssid");
-      String qpass = server.arg("pass");
-      if (qsid.length() > 0 && qpass.length() > 0) {
-        Serial.println("clearing eeprom");
-        for (int i = 0; i < 96; ++i) {
-          EEPROM.write(i, 0);
-        }
-        Serial.println(qsid);
-        Serial.println("");
-        Serial.println(qpass);
-        Serial.println("");
-
-        Serial.println("writing eeprom ssid:");
-        for (int i = 0; i < qsid.length(); ++i)
-        {
-          EEPROM.write(i, qsid[i]);
-          Serial.print("Wrote: ");
-          Serial.println(qsid[i]);
-        }
-        Serial.println("writing eeprom pass:");
-        for (int i = 0; i < qpass.length(); ++i)
-        {
-          EEPROM.write(32 + i, qpass[i]);
-          Serial.print("Wrote: ");
-          Serial.println(qpass[i]);
-        }
-        EEPROM.commit();
-
-        content = "{\"Success\":\"saved to eeprom... reset to boot into new wifi\"}";
-        statusCode = 200;
-        ESP.reset();
-      } else {
-        content = "{\"Error\":\"404 not found\"}";
-        statusCode = 404;
-        Serial.println("Sending 404");
-      }
-      server.sendHeader("Access-Control-Allow-Origin", "*");
-      server.send(statusCode, "application/json", content);
-
-    });
-  }
 }

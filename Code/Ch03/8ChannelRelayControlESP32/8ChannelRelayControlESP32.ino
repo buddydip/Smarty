@@ -388,7 +388,7 @@ void MQTTcallback(char* topic, byte* payload, unsigned int length)
   // Fetch values.
   // Most of the time, you can rely on the implicit casts.
   // In other case, you can do doc["time"].as<long>();
-  String switchID = doc["SwitchID"];
+  String switchID = doc["SwitchName"];
   int switchState = doc["SwitchState"];
 
   //Check switch to toggle
@@ -467,7 +467,7 @@ void publishMQTTMessage(String switchName, int switchState)
 {
   doc.clear();
   controlState = "";
-  doc["SwitchID"] = switchName;
+  doc["SwitchName"] = switchName;
   doc["SwitchState"] = switchState;
   serializeJson(doc, controlState);
   Serial.println(controlState);
