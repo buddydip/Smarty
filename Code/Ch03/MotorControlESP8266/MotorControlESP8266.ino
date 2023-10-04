@@ -13,13 +13,13 @@ const char *mqtt_server = "<serverhostname>";
 const int mqtt_port = 1883;
 
 //const char *mqtt_topic = "smarty/switchcontrol/bedroom";
-const char *mqtt_topic = "smarty/motorcontrol/bedroom";
+const char *mqtt_topic = "smarty/motorcontrol/bedroomcurtain";
 
 const char *nodeID = "BEDROOM";
 
 //Variables
 int i = 0;
-int statusCode, Motor_status, Pwm_status;
+int statusCode, Pwm_status;
 const char* ssid = "<SSID>";
 const char* passphrase = "<password>";
 const char* otapassword = "<password>";
@@ -27,12 +27,15 @@ String st;
 String content;
 
 // L293D Motor Driver Connections
-const int MotorInput1 = 6;  // Connected to IN1
-const int MotorInput2 = 7;  // Connected to IN2
-const int MotorEnable = 5;  // Connected to EN1 (Enable PWM)
+const int MotorInput1 = 14;  // Connected to IN1
+const int MotorInput2 = 12;  // Connected to IN2
+const int MotorInput3 = 13;  // Connected to IN3
+const int MotorInput4 = 15;  // Connected to IN4
+const int MotorEnable1 = 4;  // Connected to EN1 (Enable PWM)
+const int MotorEnable2 = 5;  // Connected to EN2 (Enable PWM)
 
-int motorSpeed = 0;         // Motor speed (0-255)
-int motorDirection = -1;     // Motor direction
+int MotorSpeed = 0;         // Motor speed (0-255)
+int MotorDirection = 0;     // Motor direction
 
 //JSON message for motor control
 String controlState = "";
@@ -149,7 +152,7 @@ void MQTTcallback(char* topic, byte* payload, unsigned int length)
   }
   
   // Check if the MQTT message is for motor control
-  if (strcmp(topic, "smarty/motorcontrol/bedroom") == 0) 
+  if (strcmp(topic, mqtt_topic) == 0) 
   {
     // Fetch values for motor control
     int newSpeed = doc["MotorSpeed"];
@@ -158,6 +161,22 @@ void MQTTcallback(char* topic, byte* payload, unsigned int length)
     // Set the new motor speed and direction
     setMotor(newSpeed, newDirection);
   }
+}
+
+//publish message to MQTT broker
+void publishMQTTMessage(int speed, int direction)
+{
+  //create JSCON message for MQTT publish
+  doc.clear();
+  controlState = "";
+  doc["MotorSpeed"] = speed;
+  doc["MotorDirection"] = direction;
+  serializeJson(doc, controlState);
+  Serial.println(controlState);
+
+  //publish MQTT message
+  mqttclient.publish(mqtt_topic, controlState.c_str());
+  doc.clear();
 }
 
 void connectWifi()
@@ -240,24 +259,33 @@ void connectWifi()
 
 // Function to set the motor speed and direction
 void setMotor(int speed, int direction) {
-  motorSpeed = speed;
-  motorDirection = direction;
+  MotorSpeed = speed;
+  MotorDirection = direction;
 
-  // Control the motor using the L293D driver
-  analogWrite(MotorEnable, motorSpeed); // Set the motor speed
-
-  if (motorDirection == 1) {
-    digitalWrite(MotorInput1, HIGH);
+  if (MotorDirection == 1) {            
+    digitalWrite(MotorInput1, HIGH);    // Start first motor in forward direction
     digitalWrite(MotorInput2, LOW);
-  } else if (motorDirection == 0) {
-    digitalWrite(MotorInput1, LOW);
+    digitalWrite(MotorInput3, HIGH);    //Start second motor in forward direction
+    digitalWrite(MotorInput4, LOW);
+  } else if (MotorDirection == 2) {     
+    digitalWrite(MotorInput1, LOW);     // Start first motor in backward direction
     digitalWrite(MotorInput2, HIGH);
-  } else {                              // Stop the motor
-    digitalWrite(MotorInput1, LOW);
+    digitalWrite(MotorInput3, LOW);     // Start second motor in backward direction
+    digitalWrite(MotorInput4, HIGH);
+  } else if (MotorDirection == 0) {     
+    digitalWrite(MotorInput1, LOW);     // Stop the first motor
     digitalWrite(MotorInput2, LOW);
+    digitalWrite(MotorInput3, LOW);     // Stop the second motor
+    digitalWrite(MotorInput4, LOW);
   }
+
+  // Control the motor using the L293D driver, set the motor speed
+  analogWrite(MotorEnable1, MotorSpeed); 
+  analogWrite(MotorEnable2, MotorSpeed);
 }
 
+
+//initialization function executes once when powered on
 void setup() {
   Serial.begin(115200); //Initialising if(DEBUG)Serial Monitor
   Serial.println();
@@ -278,12 +306,16 @@ void setup() {
   // Setup motor control pins
   pinMode(MotorInput1, OUTPUT);
   pinMode(MotorInput2, OUTPUT);
-  pinMode(MotorEnable, OUTPUT);
+  pinMode(MotorInput3, OUTPUT);
+  pinMode(MotorInput4, OUTPUT);
+  pinMode(MotorEnable1, OUTPUT);
+  pinMode(MotorEnable2, OUTPUT);
 
   // Initialize the motor direction and speed
   setMotor(0, 0); // Initially, stop the motor
 }
 
+//continuous execution function
 void loop() {
   if ((WiFi.status() != WL_CONNECTED))
   {
@@ -317,32 +349,43 @@ void loop() {
 
   // Match the request
   if (request.indexOf("/start=1") != -1)  { 
-    setMotor(1000, 1);               //Start motor
-    Motor_status=1;
-    motorDirection=1;
+    MotorSpeed = 1023;    // Setting duty cycle to 100%
+    MotorDirection=1;
+    setMotor(MotorSpeed, MotorDirection);           //Start motors
+    publishMQTTMessage(MotorSpeed, MotorDirection);
   }
 
   if (request.indexOf("/stop=1") != -1)  {
-    setMotor(0, 0);                 //Stop motor
-    Motor_status=0;
+    MotorSpeed=0;    
+    MotorDirection=0;
+    setMotor(MotorSpeed, MotorDirection);           //Stop motors
+    publishMQTTMessage(MotorSpeed, MotorDirection);
   }
   
   if (request.indexOf("/tog=1") != -1)  {
-    // Change motor rotation direction
-    motorDirection = !motorDirection;
-    setMotor(motorSpeed, motorDirection);
+    if(MotorDirection != 0) {
+      MotorDirection = (MotorDirection == 1) ? 2 : 1;   // Change motor's rotation direction
+    }
+    setMotor(MotorSpeed, MotorDirection);
+    publishMQTTMessage(MotorSpeed, MotorDirection);
   }
   
   if (request.indexOf("/Req=2") != -1)  {  
-    setMotor(767, motorDirection);    //Pwm duty cycle 75%
+    MotorSpeed = 767;
+    setMotor(MotorSpeed, MotorDirection);    //Pwm duty cycle 75%
+    publishMQTTMessage(MotorSpeed, MotorDirection);
     Pwm_status=1;
   }
   if (request.indexOf("/Req=3") != -1)  { 
-    setMotor(512, motorDirection);    //Pwm duty cycle 50%
+    MotorSpeed = 512;
+    setMotor(MotorSpeed, MotorDirection);    //Pwm duty cycle 50%
+    publishMQTTMessage(MotorSpeed, MotorDirection);
     Pwm_status=2;
   }
   if (request.indexOf("/Req=4") != -1)  {  
-    setMotor(255, motorDirection);    //Pwm duty cycle 25%
+    MotorSpeed = 255;
+    setMotor(MotorSpeed, MotorDirection);    //Pwm duty cycle 25%
+    publishMQTTMessage(MotorSpeed, MotorDirection);
     Pwm_status=3;
   }
 
@@ -358,7 +401,7 @@ void loop() {
   wifiClient.println("</head>");
   wifiClient.println("<body bgcolor = \"#f7e6ec\">");
   wifiClient.println("<hr/><hr>");
-  wifiClient.println("<h4><center>Nodemcu Dc motor control over WiFi</center></h4>");
+  wifiClient.println("<h4><center>Nodemcu DC motor control over WiFi</center></h4>");
   wifiClient.println("<hr/><hr>");
   wifiClient.println("<center>");
   wifiClient.println("<table border=\"1\" width=\"100%\">");
@@ -371,13 +414,13 @@ void loop() {
   wifiClient.println("<a href=\"/Req=3\"\"><button>Speed - 50% </button></a><br/><br/>");
   wifiClient.println("<a href=\"/Req=4\"\"><button>Speed - 25% </button></a><br/><br/>");
 
-  if(Motor_status==1){
-    wifiClient.println("Motor Powered Working<br/>" );
+  if(MotorDirection!=0){
+    wifiClient.println("Motor Powered & Working<br/>" );
   }
   else
     wifiClient.println("Motor at Halt<br/>" );
 
-  if(motorDirection==1){
+  if(MotorDirection==1){
     wifiClient.println("Motor rotating in forward direction<br/>" );
   }
   else
@@ -406,7 +449,7 @@ void loop() {
   Serial.println("");
 
 }
-//-------- Fuctions used for WiFi credentials saving and connecting to it which you do not need to change
+//-------- Fuctions used for WiFi credentials saving and connecting to it 
 bool testWifi(void)
 {
   int c = 0;
