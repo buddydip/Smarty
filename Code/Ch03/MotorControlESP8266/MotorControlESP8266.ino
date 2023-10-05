@@ -9,19 +9,16 @@
 #include <EEPROM.h>
 
 //MQTT Connection
-const char *mqtt_server = "<serverhostname>";
+const char *mqtt_server = "smarty.local";
 const int mqtt_port = 1883;
 
-//const char *mqtt_topic = "smarty/switchcontrol/bedroom";
 const char *mqtt_topic = "smarty/motorcontrol/bedroomcurtain";
 
-const char *nodeID = "BEDROOM";
+const char *nodeID = "BEDROOMCURTAIN";
 
 //Variables
 int i = 0;
 int statusCode, Pwm_status;
-const char* ssid = "<SSID>";
-const char* passphrase = "<password>";
 const char* otapassword = "<password>";
 String st;
 String content;
@@ -96,36 +93,6 @@ void enableOTA()
   Serial.println(WiFi.localIP());     // Display the IP address of the ESP on the serial monitor
 }
 
-//connect to MQTT
-int connectMQTT()
-{
-  Serial.print("Connecting to MQTT Broker ");
-  Serial.print("Connecting to MQTT Broker ");
-  Serial.print(mqtt_server);
-  Serial.println(" at port " + mqtt_port);
-
-  //connect to MQTT server
-  mqttclient.setClient(wifimqClient);
-  mqttclient.setServer(mqtt_server, mqtt_port);
-  mqttclient.setCallback(MQTTcallback);
-
-  if (mqttclient.connect(nodeID))
-  {
-    Serial.println("Connected to MQTT Broker");
-    boolean subs = mqttclient.subscribe(mqtt_topic);
-    Serial.print("Subscribed to topic ");
-    Serial.println(mqtt_topic);
-    String msg = String("Connected. State : " + String(mqttclient.state()) + " Topic Subscribed :" + String(subs) + "  Topic : " + String(mqtt_topic));
-  }
-  else
-  {
-    Serial.print("Failed to connect to MQTT broker with state ");
-    Serial.println(mqttclient.state());
-    String msg = String("Not Connected : " + mqttclient.state());
-    delay(2000);
-  }
-  return mqttclient.state();
-}
 
 //callback function for MQTT message
 void MQTTcallback(char* topic, byte* payload, unsigned int length)
@@ -162,6 +129,39 @@ void MQTTcallback(char* topic, byte* payload, unsigned int length)
     setMotor(newSpeed, newDirection);
   }
 }
+
+//connect to MQTT
+int connectMQTT()
+{
+  Serial.print("Connecting to MQTT Broker ");
+  Serial.print("Connecting to MQTT Broker ");
+  Serial.print(mqtt_server);
+  Serial.println(" at port " + mqtt_port);
+
+  //connect to MQTT server
+  mqttclient.setClient(wifimqClient);
+  mqttclient.setServer(mqtt_server, mqtt_port);
+  mqttclient.setCallback(MQTTcallback);
+
+  if (mqttclient.connect(nodeID))
+  {
+    Serial.println("Connected to MQTT Broker");
+    boolean subs = mqttclient.subscribe(mqtt_topic);
+    Serial.print("Subscribed to topic ");
+    Serial.println(mqtt_topic);
+    String msg = String("Connected. State : " + String(mqttclient.state()) + " Topic Subscribed :" + String(subs) + "  Topic : " + String(mqtt_topic));
+  }
+  else
+  {
+    Serial.print("Failed to connect to MQTT broker with state ");
+    Serial.println(mqttclient.state());
+    String msg = String("Not Connected : " + mqttclient.state());
+    delay(2000);
+  }
+  return mqttclient.state();
+}
+
+
 
 //publish message to MQTT broker
 void publishMQTTMessage(int speed, int direction)
