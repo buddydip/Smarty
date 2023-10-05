@@ -9,7 +9,7 @@
 #include <EEPROM.h>
 
 //MQTT Connection
-const char *mqtt_server = "smarty.local";
+const char *mqtt_server = "<serverhostname>";
 const int mqtt_port = 1883;
 
 const char *mqtt_topic = "<mqtt_topic>";
@@ -19,7 +19,7 @@ const char *nodeID = "<nodeID>";
 //Variables
 int i = 0;
 int statusCode, Pwm_status;
-const char* otapassword = "<password>";
+const char* otapassword = "<ota_password>";
 String st;
 String content;
 
