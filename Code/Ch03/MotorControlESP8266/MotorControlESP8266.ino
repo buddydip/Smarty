@@ -12,9 +12,9 @@
 const char *mqtt_server = "smarty.local";
 const int mqtt_port = 1883;
 
-const char *mqtt_topic = "smarty/motorcontrol/bedroomcurtain";
+const char *mqtt_topic = "<mqtt_topic>";
 
-const char *nodeID = "BEDROOMCURTAIN";
+const char *nodeID = "<nodeID>";
 
 //Variables
 int i = 0;
