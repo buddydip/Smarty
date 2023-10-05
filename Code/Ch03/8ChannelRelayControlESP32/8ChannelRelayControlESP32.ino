@@ -11,13 +11,12 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 
-
-const char* nodeID = "CINEMAROOM";
-
 //MQTT Connection
-const char* mqtt_server = "Smarty";
+const char* mqtt_server = "<serverhostname>";
 const int mqtt_port = 1883;
-const char* mqtt_topic = "smarty/switchcontrol/cinemaroom";
+const char* mqtt_topic = "<mqtt_topic>";
+
+const char* nodeID = "<nodeID>";
 
 //JSON message for switch control
 String controlState = "";
@@ -25,7 +24,7 @@ StaticJsonDocument<200> doc;
 
 int i = 0;
 int statusCode;
-const char* otapassword = "<specify OTA password>";
+const char* otapassword = "<OTA password>";
 String st;
 String content;
 
