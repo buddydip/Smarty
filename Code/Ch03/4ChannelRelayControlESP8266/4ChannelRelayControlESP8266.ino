@@ -9,15 +9,15 @@
 #include <EEPROM.h>
 
 //MQTT Connection
-const char *mqtt_server = "smarty.local";
+const char *mqtt_server = "<serverhostname>";
 const int mqtt_port = 1883;
-const char *mqtt_topic = "smarty/bedroom";
-const char *nodeID = "smartybedroom";
+const char *mqtt_topic = "<mqtt_topic>";
+const char *nodeID = "<nodeID>";
 
 //Variables
 int i = 0;
 int statusCode;
-const char* otapassword = "zyxcba123";
+const char* otapassword = "<ota_password>";
 String st;
 String content;
 
