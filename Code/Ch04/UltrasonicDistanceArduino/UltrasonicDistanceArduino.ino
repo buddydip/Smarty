@@ -22,7 +22,7 @@ void loop() {
   digitalWrite(trigPin, LOW);
 
   duration_us = pulseIn(echoPin, HIGH);  // Measure duration of pulse from ECHO pin
-  distance_cm = 0.017 * duration_us;     // Calculate the distance in centimeters
+  distance_cm = ((duration_us/2)/29.1);     // Calculate the distance in centimeters
 
   doc["ParamName"] = "Distance";
   doc["ParamValue"] = distance_cm;
