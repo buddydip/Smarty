@@ -13,10 +13,10 @@
 
 
 //MQTT Connection
-const char *mqtt_server = "smarty.local";
+const char *mqtt_server = "<mqtt serverhostname>";
 const int mqtt_port = 1883;
-const char *mqtt_topic = "smarty/bedroom";
-const char *nodeID = "smartybedroom";
+const char *mqtt_topic = "<mqtt topic>";
+const char *nodeID = "<hostname of NodeMCU>";
 
 
 //Wifiserver instance at port 80
@@ -28,7 +28,7 @@ SoftwareSerial espSerial(3, 1);      // Set up a new SoftwareSerial object
 WiFiClient wifimqClient;
 PubSubClient mqttclient;
 
-const char* otapassword = "zyxcba123";
+const char* otapassword = "<ota password>";
 
 String content;                       // creating required variables
 String st;
@@ -370,7 +370,7 @@ void publishMQTTMessage(String paramName, float paramValue)
 
 void setup() {
   espSerial.begin(9600);     //Initialising the Serial port baud
-  Serial.begin(9600);       //Initialising the Serial Monitor
+  Serial.begin(115200);       //Initialising the Serial Monitor
   Serial.println();
   Serial.println("Disconnecting previously connected WiFi");
   WiFi.disconnect();
@@ -398,19 +398,16 @@ void loop() {
   mqttclient.loop();
   ArduinoOTA.handle();
 
-  if (espSerial.available()) {           // Check if there's data available to read
-    StaticJsonDocument<200> doc;
-    String outputString = espSerial.readStringUntil('\n');
-    DeserializationError error = deserializeJson(doc, outputString);
-    if (error) {
-      Serial.print("Error in parsing JSON: ");
-      Serial.println(error.c_str());    // If there is any error it will print that
-      return;
-    }
-      // Fetch values
-    String paramName = doc["ParamName"];
-    float paramValue = doc["ParamValue"];
-    publishMQTTMessage(paramName, paramValue);
+  StaticJsonDocument<200> doc;
+  String outputString = Serial.readStringUntil('\n');
+  DeserializationError error = deserializeJson(doc, outputString);
+  if (error) {
+    Serial.print("Error in parsing JSON: ");
+    Serial.println(error.c_str());    // If there is any error it will print that
+    return;
   }
+    // Fetch values
+  String paramName = doc["ParamName"];
+  float paramValue = doc["ParamValue"];
+  publishMQTTMessage(paramName, paramValue);
 }
-
