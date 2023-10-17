@@ -4,7 +4,6 @@
 #include <EEPROM.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
-#include <SoftwareSerial.h>
 #include <ArduinoJson.h>
 #include <WiFiUdp.h>
 #include <PubSubClient.h>
@@ -21,8 +20,6 @@ const char *nodeID = "<hostname of NodeMCU>";
 
 //Wifiserver instance at port 80
 ESP8266WebServer server(80);
-
-SoftwareSerial espSerial(3, 1);      // Set up a new SoftwareSerial object
 
 //MQTT client at port 1883
 WiFiClient wifimqClient;
@@ -369,8 +366,7 @@ void publishMQTTMessage(String paramName, float paramValue)
 
 
 void setup() {
-  espSerial.begin(9600);     //Initialising the Serial port baud
-  Serial.begin(115200);       //Initialising the Serial Monitor
+  Serial.begin(9600);       //Initialising the Serial Monitor
   Serial.println();
   Serial.println("Disconnecting previously connected WiFi");
   WiFi.disconnect();
