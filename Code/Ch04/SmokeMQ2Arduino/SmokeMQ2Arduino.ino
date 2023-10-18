@@ -5,7 +5,7 @@ int mq2 = A0;             // Connect Gas sensor to analog pin A0
 int buzzer = 7;           // Connect buzzer to digital pin 7
 int red_led = 8;          // Connect red led to digital pin 8 
 int green_led = 9;        // Connect green led to digital pin 9
-int threshold = 300;      // Change the threshold value for your use
+int threshold = 400;      // Change the threshold value for your use
 String outputString = "";
 SoftwareSerial espSerial(0, 1);
 StaticJsonDocument<200> doc;  // JSON message for switch control
