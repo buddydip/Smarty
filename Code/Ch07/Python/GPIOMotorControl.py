@@ -43,7 +43,7 @@ def set_motor_speed(speed):
 try:
     while True:
         direction = input("Enter direction (forward, backward, stop): ")
-        speed = int(input("Enter speed (0-100): ")
+        speed = int(input("Enter speed (0-100): "))
 
         if direction == "forward":
             set_motor_direction(1, 0, 1, 0)
