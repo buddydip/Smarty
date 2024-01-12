@@ -2,26 +2,32 @@ import cv2
 import numpy as np
 import RPi.GPIO as GPIO
 import time
+from picamera2 import Picamera2
+
+switchPin =26
 
 # GPIO setup
-GPIO.setmode(GPIO.BOARD)
-GPIO.setup(12, GPIO.OUT)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(switchPin, GPIO.OUT)
 GPIO.setwarnings(False)
 
 # Load pre-trained MobileNet SSD model for face detection
-net = cv2.dnn.readNetFromCaffe('C:/Users/...in same folder.../deploy.prototxt', 'C:/Users/...in same folder.../mobilenet_iter_73000.caffemodel')
+net = cv2.dnn.readNetFromCaffe('/home/pi/RPi/Code/Python/model/deploy.prototxt', '/home/pi/RPi/Code/Python/model/mobilenet_iter_73000.caffemodel')
 
 # Video capture setup
-video = cv2.VideoCapture(0)
-video.set(3, 640)  # Set the width
-video.set(4, 480)  # Set the height
+picam2 = Picamera2()
+picam2.preview_configuration.main.size = (980,460)
+picam2.preview_configuration.main.format = "RGB888"
+picam2.preview_configuration.align()
+picam2.configure("preview")
+picam2.start()
 
 while True:
     # Read a frame from the camera
-    ret, frame = video.read()
+    img = picam2.capture_array()
 
     # Prepare the frame for face detection
-    blob = cv2.dnn.blobFromImage(frame, 0.007843, (300, 300), 127.5)
+    blob = cv2.dnn.blobFromImage(img, 0.007843, (300, 300), 127.5)
     net.setInput(blob)
 
     # Perform face detection
@@ -31,16 +37,16 @@ while True:
     for i in range(detections.shape[2]):
         confidence = detections[0, 0, i, 2]
         if confidence > 0.5:  # Adjust the confidence threshold as needed
-            GPIO.output(12, GPIO.HIGH)
+            GPIO.output(switchPin, GPIO.HIGH)
             print("Face detected - Relay ON")
             time.sleep(1)
             break
         else:
-            GPIO.output(12, GPIO.LOW)
+            GPIO.output(switchPin, GPIO.LOW)
             print("No face detected - Relay OFF")
 
     # Display the frame
-    cv2.imshow("Face Detection", frame)
+    cv2.imshow("Face Detection", img)
 
     # Break the loop if 'Esc' key is pressed
     if cv2.waitKey(1) & 0xFF == 27:
@@ -48,5 +54,4 @@ while True:
 
 # Cleanup GPIO and release resources
 GPIO.cleanup()
-video.release()
 cv2.destroyAllWindows()
