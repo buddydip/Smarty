@@ -1,20 +1,22 @@
+#import libraries
 import cvzone
 from cvzone.FaceDetectionModule import FaceDetector
 import cv2
 from picamera2 import Picamera2
-
 import json
 import paho.mqtt.client as mqtt
 
-
+#MQTT connection parameters
 MQTT_ADDRESS:str = 'smarty.local'
 MQTT_TOPIC_SWITCH: str = 'smarty/switchcontrol/mainstudy'
 MQTT_CLIENT_ID:str = 'MQTTDataBridge'
 MQTT_PORT:int = 1883
 
+#switch to control
 switchID = 'MAINSTUDY.Switch4'
 switchState = 1
-    
+
+#function to publish MQTT message
 def _publish_message(topic, switchID, switchState):
     data = {}
     data['SwitchID'] = switchID
@@ -23,9 +25,8 @@ def _publish_message(topic, switchID, switchState):
     print(payload)
     mqtt_client.publish(MQTT_TOPIC_SWITCH, payload)
     return
- 
-
-
+    
+#connect to MQTT Broker
 mqtt_client = mqtt.Client(MQTT_CLIENT_ID)
 mqtt_client.connect(MQTT_ADDRESS, MQTT_PORT)
 mqtt_client.loop_start()  # start the loop
@@ -56,7 +57,7 @@ while True:
     # bboxs: List of bounding boxes around detected faces
     img, bboxs = detector.findFaces(img, draw=False)
 
-    # Check if any face is detected
+    # Check if any face is detected processing each frame in a loop
     if bboxs:
         # Loop through each bounding box
         for bbox in bboxs:
@@ -67,7 +68,7 @@ while True:
             x, y, w, h = bbox['bbox']
             score = int(bbox['score'][0] * 100)
             
-            #publish message on face detection
+            #publish message on face detection when the confidence level is more than 95%
             if score > 95:
                 _publish_message(MQTT_TOPIC_SWITCH, switchID, switchState)
             
