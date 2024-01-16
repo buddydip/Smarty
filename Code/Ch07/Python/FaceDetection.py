@@ -79,5 +79,8 @@ while True:
 
     # Display the image in a window named 'Image'
     cv2.imshow("Image", img)
-    # Wait for 1 millisecond, and keep the window open
-    cv2.waitKey(1)
+
+    if cv2.waitKey(1) & 0xFF==27 :
+        break
+    
+cv2.destroyAllWindows()
