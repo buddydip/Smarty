@@ -1,5 +1,4 @@
 #import libraries
-import RPi.GPIO as GPIO
 import time
 import cv2
 from cvzone.HandTrackingModule import HandDetector
@@ -90,8 +89,6 @@ while True :
     cv2.imshow("Camera", img)
     if cv2.waitKey(1) & 0xFF==27 :
         break
-
-GPIO.cleanup()
-    
+        
 cv2.destroyAllWindows()
 
