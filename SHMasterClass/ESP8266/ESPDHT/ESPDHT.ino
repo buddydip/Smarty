@@ -12,10 +12,6 @@
 #define dht_dpin 2
 DHT dht(dht_dpin, DHTTYPE); 
 
-//Wifi Credential
-String isid = "MORPHEOUS";
-String ipass = "whatever2020";
-
 
 //MQTT Connection
 const char *mqtt_server = "Smarty.local";
@@ -130,13 +126,7 @@ void connectWifi()
   }
   Serial.print("PASS: ");
   Serial.println(epass);
-
-  if(epass=="" || esid=="")
-  {
-    epass=ipass;
-    esid=isid;
-  }
-  
+ 
   if(esid != "" && epass != "")
   {
     Serial.println("connecting to Wifi");
@@ -193,10 +183,7 @@ void connectWifi()
 
 
 
-
-
-
-
+//loop continuously to read sensor data
 void loop() {
     float h = dht.readHumidity();
     float t = dht.readTemperature();  
