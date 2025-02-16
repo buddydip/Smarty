@@ -14,10 +14,10 @@ DHT dht(dht_dpin, DHTTYPE);
 
 
 //MQTT Connection
-const char *mqtt_server = "Smarty.local";
+const char *mqtt_server = "test.mosquitto.org";
 const int mqtt_port = 1883;
 
-const char *mqtt_topic = "smarty/airqinfo";
+const char *mqtt_topic = "shmasterclass/groupxx/airqinfo";
 const char *nodeID = "AirQ1";
 
 //Variables
