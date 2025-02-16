@@ -9,10 +9,10 @@
 #include <EEPROM.h>
 
 //MQTT Connection
-const char *mqtt_server = "<serverhostname>";
+const char *mqtt_server = "test.mosquitto.org";
 const int mqtt_port = 1883;
-const char *mqtt_topic = "<mqtt_topic>";
-const char *nodeID = "<nodeID>";
+const char *mqtt_topic = "shmasterclass/groupxx/switchcontrol";
+const char *nodeID = "groupxx";
 
 //Variables
 int i = 0;
