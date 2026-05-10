@@ -1,3 +1,4 @@
+
 #include "DHT.h"        // including the library of DHT11 temperature and humidity sensor
 #include <WiFiUdp.h>
 #include <ESP8266WiFi.h>
@@ -17,8 +18,15 @@ DHT dht(dht_dpin, DHTTYPE);
 const char *mqtt_server = "test.mosquitto.org";
 const int mqtt_port = 1883;
 
+//const char *mqtt_server = "10.0.0.27";
+//const int mqtt_port = 1884;
+
 const char *mqtt_topic = "shmasterclass/groupxx/airqinfo";
 const char *nodeID = "AirQ1";
+
+
+//Wifiserver instance at port 80
+WiFiServer wifiServer(80);
 
 //Variables
 int i = 0;
@@ -58,10 +66,72 @@ void setup(void)
 }
 
 
+//loop continuously to read sensor data
+void loop() {
+
+    //check the connections and connect if disconnected
+  if ((WiFi.status() != WL_CONNECTED))
+  {
+    Serial.println("wifi Disconnected");
+    connectWifi();
+  }
+
+  MDNS.update();
+  //check MQTT Connection
+  if (mqttclient.state() != 0)
+  {
+    Serial.println("MQTT Disconnected");
+    connectMQTT();
+  }
+  mqttclient.loop();
+
+    float h = dht.readHumidity();
+    float t = dht.readTemperature();  
+    if(h!= hum)
+    {
+      doc.clear();
+      msg = "";
+      doc["ParamName"] = "Humidity";
+      doc["ParamValue"] = h;
+      serializeJson(doc, msg);
+      Serial.println(mqtt_topic);
+      Serial.println(msg);
+      Serial.println(mqttclient.state());
+      mqttclient.publish(mqtt_topic, msg.c_str());
+      doc.clear();
+      hum=h;
+      
+    }
+
+    if(t!= temp)
+    {
+      doc.clear();
+      msg = "";
+      doc["ParamName"] = "Temperature";
+      doc["ParamValue"] = t;
+      serializeJson(doc, msg);
+      Serial.println(mqtt_topic);
+      Serial.println(msg);
+      Serial.println(mqttclient.state());
+      mqttclient.publish(mqtt_topic, msg.c_str());
+      doc.clear();
+      temp=t;
+    }
+
+           
+    Serial.print("Current humidity = ");
+    Serial.print(h);
+    Serial.print("%  ");
+    Serial.print("temperature = ");
+    Serial.print(t); 
+    Serial.println("C  ");
+  delay(3000);
+}
+
+
 //connect to MQTT
 int connectMQTT()
 {
-  Serial.print("Connecting to MQTT Broker ");
   Serial.print("Connecting to MQTT Broker ");
   Serial.print(mqtt_server);
   Serial.println(" at port " + mqtt_port);
@@ -69,15 +139,11 @@ int connectMQTT()
   //connect to MQTT server
   mqttclient.setClient(wifimqClient);
   mqttclient.setServer(mqtt_server, mqtt_port);
-  mqttclient.setCallback(MQTTcallback);
 
   if (mqttclient.connect(nodeID))
   {
     Serial.println("Connected to MQTT Broker");
-    boolean subs = mqttclient.subscribe(mqtt_topic);
-    Serial.print("Subscribed to topic ");
-    Serial.println(mqtt_topic);
-    String msg = String("Connected. State : " + String(mqttclient.state()) + " Topic Subscribed :" + String(subs) + "  Topic : " + String(mqtt_topic));
+    String msg = String("Connected. State : " + String(mqttclient.state()));
   }
   else
   {
@@ -89,24 +155,11 @@ int connectMQTT()
   return mqttclient.state();
 }
 
-
-//callback function for MQTT message
-void MQTTcallback(char* topic, byte* payload, unsigned int length)
-{
-  Serial.print("Message received in topic: ");
-  Serial.println(topic);
-  Serial.print("Message:");
-  String message;
-}
-
-
-
+//connect to Wifi network
 void connectWifi()
 {
-
   Serial.println("Startup");
-
-  //---------------------------------------- Read EEPROM for SSID and pass
+ //---------------------------------------- Read EEPROM for SSID and pass
   Serial.println("Reading EEPROM ssid");
 
   String esid;
@@ -126,23 +179,24 @@ void connectWifi()
   }
   Serial.print("PASS: ");
   Serial.println(epass);
- 
-  if(esid != "" && epass != "")
-  {
-    Serial.println("connecting to Wifi");
-    Serial.print("SSID: ");
-    Serial.println(esid);
-    Serial.print("PASS: ");
-    Serial.println(epass);
-    
-    
-    WiFi.begin(esid.c_str(), epass.c_str());
-  }
-  
+
+  WiFi.begin(esid.c_str(), epass.c_str());
   if (testWifi())
   {
+    Serial.println("Successfully Connected!!!");
+    // Start the server
+    Serial.println("");
     Serial.println("WiFi connected");
 
+    // Start the server
+    wifiServer.begin();
+    Serial.println("Server started");
+
+    // Print the IP address
+    Serial.print("Use this URL to connect: ");
+    Serial.print("http://");
+    Serial.print(WiFi.localIP());
+    Serial.println("/");
 
     // Set up mDNS responder:
     // - first argument is the domain name, in this example
@@ -164,9 +218,9 @@ void connectWifi()
   }
   else
   {
-    //Serial.println("Turning the HotSpot On");
-    //launchWeb();
-    //setupAP();// Setup HotSpot
+    Serial.println("Turning the HotSpot On");
+    launchWeb();
+    setupAP();// Setup HotSpot
   }
 
   Serial.println();
@@ -181,59 +235,11 @@ void connectWifi()
 
 }
 
-
-
-//loop continuously to read sensor data
-void loop() {
-    float h = dht.readHumidity();
-    float t = dht.readTemperature();  
-    if(h!= hum)
-    {
-      doc.clear();
-      msg = "";
-      doc["ParamName"] = "Humidity";
-      doc["Value"] = h;
-      serializeJson(doc, msg);
-      Serial.println(msg);
-  
-      mqttclient.publish(mqtt_topic, msg.c_str());
-      doc.clear();
-      hum=h;
-      
-    }
-
-    if(t!= temp)
-    {
-      doc.clear();
-      msg = "";
-      doc["ParamName"] = "Temperature";
-      doc["Value"] = t;
-      serializeJson(doc, msg);
-      Serial.println(msg);
-  
-      mqttclient.publish(mqtt_topic, msg.c_str());
-      doc.clear();
-      temp=t;
-    }
-
-           
-    Serial.print("Current humidity = ");
-    Serial.print(h);
-    Serial.print("%  ");
-    Serial.print("temperature = ");
-    Serial.print(t); 
-    Serial.println("C  ");
-  delay(3000);
-}
-
-
-
-//-------- Fuctions used for WiFi credentials saving and connecting to it which you do not need to change
-bool testWifi(void)
+//Fuctions used for WiFi credentials saving and connecting to it
+bool testWifi()
 {
   int c = 0;
   Serial.println("Waiting for Wifi to connect");
-  Serial.println(WiFi.status());
   while ( c < 100 ) {
     if (WiFi.status() == WL_CONNECTED)
     {
@@ -263,7 +269,9 @@ void launchWeb()
   Serial.println("Server started");
 }
 
-void setupAP(void)
+
+//setup hotspot
+void setupAP()
 {
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
@@ -311,6 +319,8 @@ void setupAP(void)
   Serial.println("over");
 }
 
+
+//launch web page for Wifi config
 void createWebServer()
 {
   {
@@ -328,7 +338,7 @@ void createWebServer()
       server.send(200, "text/html", content);
     });
     server.on("/scan", []() {
-      //setupAP();
+
       IPAddress ip = WiFi.softAPIP();
       String ipStr = String(ip[0]) + '.' + String(ip[1]) + '.' + String(ip[2]) + '.' + String(ip[3]);
 
@@ -379,3 +389,4 @@ void createWebServer()
     });
   }
 }
+//WiFi Config Functions end
